@@ -1,0 +1,60 @@
+cabal-version:      2.4
+name:               manga-ocr-http
+version:            0.1.0.0
+synopsis:
+    Simple wrapper around the CLI tool manga-ocr, exposing its functionality as a REST API.
+
+-- A longer description of the package.
+-- description:
+homepage:           https://github.com/fsestini/manga-ocr-http
+
+-- A URL where users can report bugs.
+-- bug-reports:
+license:            MIT
+license-file:       LICENSE
+author:             Filippo Sestini
+maintainer:         sestini.filippo@gmail.com
+
+-- A copyright notice.
+-- copyright:
+category:           Web
+extra-source-files: CHANGELOG.md
+
+library
+    exposed-modules:  Manga.OCR.Http
+                    , Manga.OCR.Options
+
+    -- Modules included in this library but not exported.
+    -- other-modules:
+
+    -- LANGUAGE extensions used by modules in this package.
+    -- other-extensions:
+    build-depends:    base ^>=4.16.4.0
+                    , Spock
+                    , wai-cors
+                    , optparse-applicative
+                    , directory
+                    , process
+                    , filepath
+                    , text
+                    , bytestring
+                    , time
+                    , http-types
+                    , shelly
+    hs-source-dirs:   src
+    default-language: Haskell2010
+
+executable manga-ocr-http
+    main-is:          Main.hs
+
+    -- Modules included in this executable, other than Main.
+    -- other-modules:
+
+    -- LANGUAGE extensions used by modules in this package.
+    -- other-extensions:
+    build-depends:
+        base ^>=4.16.4.0,
+        manga-ocr-http
+
+    hs-source-dirs:   app
+    default-language: Haskell2010
