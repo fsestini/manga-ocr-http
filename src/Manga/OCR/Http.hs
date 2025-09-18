@@ -6,9 +6,11 @@ module Manga.OCR.Http where
 import Control.Concurrent (threadDelay)
 import Control.Monad.IO.Class (liftIO)
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as LB
 import Data.Text (Text, pack)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
+import qualified Data.Text.Lazy as LT
 import Data.Time (UTCTime (..), getCurrentTime)
 import GHC.IO.Buffer (BufferState (ReadBuffer))
 import Manga.OCR.Options (OCROptions (..), parseOptions)
@@ -20,14 +22,8 @@ import System.FilePath ((</>))
 import System.IO (Handle, IOMode (ReadMode), SeekMode (SeekFromEnd), hGetLine, hIsEOF, hSeek, withFile)
 import System.Process (proc, withCreateProcess)
 import System.Timeout (timeout)
-import Web.Spock (SpockAction, SpockM, body, get, middleware, post, runSpock, setStatus, spock, static, text)
-import Web.Spock.Config (PoolOrConn (PCNoDatabase), defaultSpockCfg)
-
-type ServerState = ()
-
-type Server a = SpockM () () ServerState a
-
-type ApiAction a = SpockAction () () ServerState a
+import Web.Scotty (ScottyM, scotty)
+import qualified Web.Scotty as Scotty
 
 data ServerConfig = ServerConfig
   { ocrHandle :: Handle,
@@ -61,25 +57,23 @@ app = do
     touchfile tempOutput
     runHandle comm ["-r", pack tempImgDir, "-w", pack tempOutput] $ \_ -> liftIO do
       withFile tempOutput ReadMode $ \fh -> do
-        let s = server (ServerConfig fh tempImgDir (routeNameOpt opts))
-        c <- defaultSpockCfg () PCNoDatabase ()
-        liftIO $ runSpock port (spock c s)
+        let c = ServerConfig fh tempImgDir (routeNameOpt opts)
+        liftIO $ scotty port (server c)
   where
     err c = "could not find command " <> pack c <> "in PATH"
 
-server :: ServerConfig -> Server ()
+server :: ServerConfig -> ScottyM ()
 server c = do
-  middleware simpleCors
-  post (static (routeName c)) $ do
-    reqData <- body
-    ml <- liftIO $ do
+  Scotty.middleware simpleCors
+  Scotty.post (Scotty.literal ("/" ++ routeName c)) $ do
+    reqData <- fmap LB.toStrict Scotty.body
+    maybeLine <- liftIO $ do
       seekEOF h
       utc <- show . utctDayTime <$> getCurrentTime
       B.writeFile (tempImgDir c </> (utc ++ ".jpg")) reqData
       waitNewLine 10 h
-    maybe
-      (setStatus serviceUnavailable503)
-      text
-      ml
+    case maybeLine of
+      Just line -> Scotty.text (LT.fromStrict line)
+      Nothing -> Scotty.status serviceUnavailable503
   where
     h = ocrHandle c
